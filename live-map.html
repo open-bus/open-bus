@@ -1,0 +1,88 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Live GPS Tirana City Tour</title>
+    <meta charset="utf-8" />
+    <style>
+      html, body, #map {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDcOwNMc5bmnN61hHrR3c5wbxDbFc-QyYc"></script>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <script>
+      let map;
+      let liveMarker;
+
+      function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+          center: { lat: 41.3275, lng: 19.8189 },
+          zoom: 13
+        });
+
+        // Load the KML route
+        const kmlLayer = new google.maps.KmlLayer({
+          url: 'https://open-bus.github.io/bus-map/tirana-city-tour-map.kml',
+          map: map
+        });
+
+        // Create live marker
+        liveMarker = new google.maps.Marker({
+          map: map,
+          title: "Live Bus",
+          icon: {
+            url: "https://maps.google.com/mapfiles/ms/icons/bus.png"
+          }
+        });
+
+        // Start updating GPS position
+        updateLivePosition();
+        setInterval(updateLivePosition, 15000); // every 15 seconds
+      }
+
+      async function updateLivePosition() {
+        try {
+          const loginRes = await fetch("https://api.tracksolidpro.com/trackOpenApi/v1/user/login", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              account: "Offlimits",
+              password: "cd9323048162e373f71fcfad77b7eb67",
+              appKey: "8FB345B8693CCD0030874ECE0B95805F"
+            })
+          });
+          const loginData = await loginRes.json();
+          const token = loginData.data.token;
+
+          const locationRes = await fetch("https://api.tracksolidpro.com/trackOpenApi/v1/device/location", {
+            method: "POST",
+            headers: { 
+              "Content-Type": "application/json",
+              "Authorization": token
+            },
+            body: JSON.stringify({ imei: "862798051314108" })
+          });
+          const locData = await locationRes.json();
+          const loc = locData.data;
+
+          const position = {
+            lat: loc.latitude,
+            lng: loc.longitude
+          };
+          liveMarker.setPosition(position);
+          map.panTo(position);
+        } catch (err) {
+          console.error("GPS Update Failed", err);
+        }
+      }
+
+      window.onload = initMap;
+    </script>
+  </body>
+</html>
