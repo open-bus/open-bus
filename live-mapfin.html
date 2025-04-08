@@ -1,0 +1,108 @@
+
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Live Bus Map</title>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1.0" />
+    <style>
+      html,
+      body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+
+      #map {
+        height: 100%;
+        width: 100%;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="map"></div>
+
+    <script>
+      const imei = "862798051314108";
+      const appKey = "8FB345B8693CCD0030874ECE0B95805F";
+      const appSecret = "c07101ce49e144ebb04016a39e8b472d";
+
+      let map;
+      let gpsMarker = null;
+
+      function initMap() {
+        map = new google.maps.Map(document.getElementById("map"), {
+          zoom: 13,
+          center: { lat: 41.3275, lng: 19.8189 }, // Tirana
+        });
+
+        // Load KML route
+        const kmlLayer = new google.maps.KmlLayer({
+          url: "https://open-bus.github.io/open-bus/route.kml",
+          map: map,
+          preserveViewport: true,
+        });
+
+        // Fetch and update GPS position every 10 seconds
+        fetchAccessToken().then((token) => {
+          updateGPS(token);
+          setInterval(() => updateGPS(token), 10000);
+        });
+      }
+
+      async function fetchAccessToken() {
+        const res = await fetch("https://api.tracksolidpro.com/api/v2/user/login", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            account: "Offlimits",
+            password: "cd9323048162e373f71fcfad77b7eb67",
+            appKey: appKey,
+            appSecret: appSecret,
+          }),
+        });
+
+        const data = await res.json();
+        return data.data.token;
+      }
+
+      async function updateGPS(token) {
+        const res = await fetch("https://api.tracksolidpro.com/api/v2/track/realTime", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": token,
+          },
+          body: JSON.stringify({ imeiList: [imei], mapType: 1 }),
+        });
+
+        const data = await res.json();
+        if (data.data && data.data.length > 0) {
+          const { lat, lng } = data.data[0];
+
+          const position = { lat: parseFloat(lat), lng: parseFloat(lng) };
+
+          if (!gpsMarker) {
+            gpsMarker = new google.maps.Marker({
+              position,
+              map,
+              icon: {
+                url: "https://maps.google.com/mapfiles/ms/icons/bus.png",
+                scaledSize: new google.maps.Size(40, 40),
+              },
+              title: "Live Bus Location",
+            });
+          } else {
+            gpsMarker.setPosition(position);
+          }
+
+          map.panTo(position);
+        }
+      }
+    </script>
+
+    <script async
+      src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDcOwNMc5bmnN61hHrR3c5wbxDbFc-QyYc&callback=initMap">
+    </script>
+  </body>
+</html>
